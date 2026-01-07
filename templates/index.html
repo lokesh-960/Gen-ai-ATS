@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALMA ATS | Intelligence Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); }
+    </style>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { brand: { 500: '#3b82f6', 600: '#2563eb' }, dark: { 900: '#111827', 950: '#030712' } } } } }
+    </script>
+</head>
+<body class="bg-slate-50 dark:bg-dark-950 text-slate-900 dark:text-slate-100 min-h-screen">
+
+    <main class="max-w-4xl mx-auto p-6 md:p-12">
+        <header class="flex items-center gap-4 mb-10">
+            <div class="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-lg">
+                <i data-lucide="cpu"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-black uppercase tracking-tight">ALMA Intelligence</h1>
+                <p class="text-xs text-brand-500 font-bold">GEMINI AI POWERED</p>
+            </div>
+        </header>
+
+        <div id="input-view" class="space-y-8">
+            <div class="space-y-3">
+                <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">Job Description</label>
+                <textarea id="jd-input" rows="5" class="w-full p-4 rounded-2xl bg-white dark:bg-dark-900 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-brand-500 transition-all" placeholder="Paste the job requirements here..."></textarea>
+            </div>
+
+            <div class="space-y-3">
+                <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">Upload Resume (PDF)</label>
+                <div id="drop-zone" class="h-44 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:bg-brand-500/5 transition-all group">
+                    <i data-lucide="file-text" class="text-slate-400 group-hover:text-brand-500 mb-2 transition-colors"></i>
+                    <p id="file-name" class="font-bold text-sm text-slate-500">Click or Drag PDF Resume</p>
+                    <input type="file" id="file-input" class="hidden" accept=".pdf">
+                </div>
+            </div>
+
+            <button onclick="runAnalysis()" class="w-full py-4 bg-brand-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-brand-500 transition-all active:scale-95 shadow-xl shadow-brand-600/20">
+                Begin AI Analysis
+            </button>
+        </div>
+
+        <div id="loading-view" class="hidden py-20 text-center space-y-6">
+            <div class="w-16 h-16 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div class="space-y-2">
+                <p class="font-bold text-lg">Analyzing Profile...</p>
+                <p class="text-sm text-slate-500">Gemini is parsing skills and calculating match score.</p>
+            </div>
+        </div>
+
+        <div id="results-view" class="hidden space-y-6">
+            <div class="bg-white dark:bg-dark-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden">
+                <div class="bg-brand-600 p-4">
+                    <h2 class="text-white font-black uppercase text-xs tracking-widest">ATS Report Generated</h2>
+                </div>
+                <div id="ats-output" class="p-8 text-sm leading-relaxed whitespace-pre-wrap text-slate-600 dark:text-slate-300">
+                    </div>
+            </div>
+            
+            <div class="flex justify-between items-center">
+                <button onclick="location.reload()" class="px-6 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold uppercase hover:bg-slate-100 dark:hover:bg-dark-900 transition-all">
+                    ← New Scan
+                </button>
+                <p class="text-[10px] text-slate-500 uppercase font-bold">Analysis Complete</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        
+        dropZone.onclick = () => fileInput.click();
+        
+        fileInput.onchange = () => {
+            if(fileInput.files[0]) {
+                document.getElementById('file-name').innerText = fileInput.files[0].name;
+                document.getElementById('file-name').classList.remove('text-slate-500');
+                document.getElementById('file-name').classList.add('text-brand-500');
+            }
+        };
+
+        async function runAnalysis() {
+            const jd = document.getElementById('jd-input').value;
+            const resume = fileInput.files[0];
+
+            if(!jd || !resume) {
+                alert("Missing Data: Please provide both a job description and a resume.");
+                return;
+            }
+
+            // UI Switching
+            document.getElementById('input-view').classList.add('hidden');
+            document.getElementById('loading-view').classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append("resume", resume);
+            formData.append("job_description", jd);
+
+            try {
+                // Using relative path '/analyze' works best when served by Flask
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Server error');
+                }
+
+                const data = await response.json();
+                
+                // Show Results
+                document.getElementById('loading-view').classList.add('hidden');
+                document.getElementById('results-view').classList.remove('hidden');
+                
+                // Display only the final ATS result
+                document.getElementById('ats-output').innerText = data.ats_result;
+
+            } catch (error) {
+                console.error(error);
+                alert("Error: " + error.message);
+                document.getElementById('input-view').classList.remove('hidden');
+                document.getElementById('loading-view').classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
